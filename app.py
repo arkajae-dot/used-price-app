@@ -106,53 +106,28 @@ def remove_outliers(df: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(cleaned_dfs, ignore_index=True)
 
 # ---------------------------------------------------------
-# 2. UI 화면 구성 (당근 vs 중고나라 집중 비교)
+# 2. UI 화면 구성 (기본 실시간 크롤링 모드)
 # ---------------------------------------------------------
 st.set_page_config(page_title="당근·중고나라 시세 조회기", layout="wide")
 
 st.title("🥕 당근 · 중고나라 중고 시세 통합 조회기")
-st.markdown("모델명을 검색하면 **당근**과 **중고나라**의 **최저가, 평균가, 최고가**를 한눈에 비교합니다.")
+st.markdown("모델명을 검색하면 **당근**과 **중고나라**의 **최저가, 평균가, 최고가**를 실시간으로 비교합니다.")
 
 with st.sidebar:
     st.header("⚙️ 검색 설정")
-    mode = st.radio("데이터 수집 모드", ["샘플 데이터 시뮬레이션 (빠른 확인)", "실시간 웹 크롤링"])
     min_price = st.number_input("최소 가격 필터 (액세서리/미끼 제외용)", value=30000, step=10000)
+    st.info("💡 모델명을 입력하고 [시세 조회하기]를 누르면 실시간으로 매물을 수집합니다.")
 
 keyword = st.text_input("🔍 검색할 모델명을 입력하세요", placeholder="예: 아이폰 15 프로 256, 갤럭시탭 S9, 에어팟 프로 2")
 
 if st.button("시세 조회하기", type="primary") and keyword:
-    with st.spinner(f"'{keyword}'의 당근·중고나라 시세를 분석 중입니다..."):
-        if mode == "실시간 웹 크롤링":
-            raw_df = fetch_platform_data(keyword, min_price)
-        else:
-            np.random.seed(len(keyword))
-            base = 750000
-            sample_data = (
-                [
-                    {
-                        "플랫폼": "당근",
-                        "제목": f"{keyword} 직거래 풀박스 S급 매물 {i+1}",
-                        "가격": int(np.random.normal(base * 0.96, 40000, 1)[0] // 1000 * 1000),
-                        "링크": f"https://www.daangn.com/kr/buy-sell/?search={keyword}"
-                    }
-                    for i in range(15)
-                ] +
-                [
-                    {
-                        "플랫폼": "중고나라",
-                        "제목": f"{keyword} 상태좋음 안전결제 택배가능 {i+1}",
-                        "가격": int(np.random.normal(base * 1.0, 45000, 1)[0] // 1000 * 1000),
-                        "링크": f"https://web.joongna.com/search/{keyword}"
-                    }
-                    for i in range(15)
-                ]
-            )
-            raw_df = pd.DataFrame(sample_data)
-
-        df = remove_outliers(raw_df)
+    with st.spinner(f"'{keyword}'의 당근·중고나라 실시간 매물을 수집 중입니다... (잠시만 기다려주세요)"):
+        # 기본값으로 실시간 웹 크롤링 함수 바로 실행
+        df = fetch_platform_data(keyword, min_price)
+        df = remove_outliers(df)
 
     if df.empty:
-        st.warning("실시간 매물을 가져오지 못했습니다. 왼쪽 메뉴에서 '샘플 데이터 시뮬레이션'을 선택하거나 최소 가격 필터를 낮춰보세요.")
+        st.warning("수집된 매물이 없습니다. 모델명을 다르게 입력하시거나 '최소 가격 필터' 금액을 낮춰보세요. (※ 클라우드 서버 환경에서는 당근/중고나라의 보안 차단으로 실시간 검색이 간혹 제한될 수 있습니다.)")
     else:
         # 1) 전체 통합 시세 (최하, 평균, 최대)
         total_min = int(df["가격"].min())
